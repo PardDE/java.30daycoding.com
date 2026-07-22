@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java 30-Tage-Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f; --surface: #16161a; --surface2: #1e1e24; --border: #2a2a35;
+    --accent: #f59e0b; --accent-dim: #78350f; --accent-glow: rgba(245,158,11,0.12);
+    --green: #4ade80; --green-bg: rgba(74,222,128,0.08);
+    --text: #f0f0f5; --text-muted: #6b6b80; --text-dim: #9090a8;
+    --mono: 'Space Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; line-height: 1.6; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(245,158,11,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .wrapper { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 24px 80px; }
+  header { padding: 48px 0 40px; border-bottom: 1px solid var(--border); margin-bottom: 40px; }
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .logo-area h1 { font-family: var(--mono); font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-area h1 span { color: var(--accent); }
+  .logo-area p { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+  .streak-pill { display: none; align-items: center; gap: 6px; background: rgba(250,176,5,0.1); border: 1px solid rgba(250,176,5,0.3); color: #fbbf24; font-family: var(--mono); font-size: 13px; padding: 6px 14px; border-radius: 100px; white-space: nowrap; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 32px; }
+  @media (max-width:600px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .stat-card .num { font-family: var(--mono); font-size: 28px; font-weight: 700; line-height: 1; }
+  .stat-card .num.accent { color: var(--accent); } .stat-card .num.green { color: var(--green); }
+  .stat-card .lbl { font-size: 12px; color: var(--text-muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .progress-section { margin-bottom: 36px; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .progress-header span { font-size: 13px; color: var(--text-muted); font-family: var(--mono); }
+  .progress-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #fcd34d); border-radius: 3px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); width: 0%; }
+  .phase-nav { display: flex; gap: 6px; margin-bottom: 28px; flex-wrap: wrap; }
+  .ptab { font-family: var(--mono); font-size: 12px; padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .ptab:hover { border-color: var(--accent); color: var(--accent); }
+  .ptab.active { background: var(--accent-dim); border-color: var(--accent); color: #fcd34d; }
+  .phase-heading { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; padding-left: 2px; }
+  .day-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 8px; transition: border-color 0.2s; overflow: hidden; }
+  .day-card:hover { border-color: #3a3a50; }
+  .day-card.done { background: var(--green-bg); border-color: rgba(74,222,128,0.25); }
+  .day-card.open { border-color: rgba(245,158,11,0.4); }
+  .day-card.done.open { border-color: rgba(74,222,128,0.5); }
+  .day-header { display: flex; align-items: center; gap: 12px; padding: 16px 18px; cursor: pointer; user-select: none; }
+  .check-circle { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border); background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: transparent; }
+  .check-circle:hover { border-color: var(--green); color: rgba(74,222,128,0.4); }
+  .day-card.done .check-circle { background: var(--green); border-color: var(--green); color: #0d0d0f; }
+  .check-circle svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .day-num { font-family: var(--mono); font-size: 11px; padding: 3px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); flex-shrink: 0; min-width: 54px; text-align: center; }
+  .day-card.done .day-num { background: rgba(74,222,128,0.12); color: var(--green); border-color: rgba(74,222,128,0.3); }
+  .day-title-text { font-size: 14px; font-weight: 500; flex: 1; }
+  .day-card.done .day-title-text { color: var(--green); }
+  .chev { color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s; }
+  .day-card.open .chev { transform: rotate(180deg); }
+  .chev svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .day-body { display: none; padding: 0 18px 18px; border-top: 1px solid var(--border); }
+  .day-card.done .day-body { border-color: rgba(74,222,128,0.15); }
+  .day-card.open .day-body { display: block; }
+  .day-desc { font-size: 13px; color: var(--text-dim); line-height: 1.7; padding: 14px 0 12px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tag { font-size: 11px; font-family: var(--mono); padding: 3px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+  .video-link { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--surface2); text-decoration: none; color: var(--text); font-size: 13px; margin-bottom: 8px; border: 1px solid var(--border); transition: all 0.15s; }
+  .video-link:hover { border-color: var(--accent); color: #fcd34d; background: var(--accent-glow); }
+  .yt-icon { color: #ff4444; flex-shrink: 0; margin-top: 1px; }
+  .yt-icon svg { width: 20px; height: 20px; fill: currentColor; }
+  .video-meta { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .video-title { font-size: 13px; font-weight: 500; }
+  .video-timing { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 5px; border: 1px solid; white-space: nowrap; }
+  .badge-segment { color: #fbbf24; border-color: rgba(250,176,5,0.35); background: rgba(250,176,5,0.07); }
+  .badge-full { color: #f59e0b; border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.07); }
+  .badge-total { color: var(--text-muted); border-color: var(--border); background: transparent; }
+  .task-box { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.2); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #86efac; margin-bottom: 14px; line-height: 1.6; }
+  .task-box::before { content: '▸ '; font-family: var(--mono); opacity: 0.6; }
+  .mark-btn { font-family: var(--mono); font-size: 12px; padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+  .mark-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+  .day-card.done .mark-btn { border-color: rgba(74,222,128,0.3); color: var(--green); background: rgba(74,222,128,0.06); }
+  .day-card.done .mark-btn:hover { border-color: #f87171; color: #f87171; background: rgba(248,113,113,0.06); }
+  .reset-area { margin-top: 60px; text-align: center; padding-top: 32px; border-top: 1px solid var(--border); }
+  .reset-btn { font-family: var(--mono); font-size: 11px; padding: 7px 18px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+  .reset-btn:hover { border-color: #f87171; color: #f87171; }
+  .phase-section { display: none; } .phase-section.visible { display: block; }
+  .complete-banner { display: none; background: linear-gradient(135deg, rgba(74,222,128,0.1), rgba(245,158,11,0.1)); border: 1px solid rgba(74,222,128,0.3); border-radius: 14px; padding: 24px; text-align: center; margin-bottom: 32px; }
+  .complete-banner h2 { font-family: var(--mono); font-size: 18px; color: var(--green); margin-bottom: 8px; }
+  .complete-banner p { font-size: 14px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="header-top">
+      <div class="logo-area">
+        <h1>Java <span>{ }</span> 30-Tage-Plan</h1>
+        <p>Von null zum Java-Profi — hake jeden Tag ab wenn du fertig bist</p>
+      </div>
+      <div class="streak-pill" id="streak-pill">🔥 <span id="streak-num">0</span> Tage Streak</div>
+    </div>
+  </header>
+
+  <div class="complete-banner" id="complete-banner">
+    <h2>// Java-Profi achieved!</h2>
+    <p>Alle 30 Tage abgeschlossen. Du bist jetzt ein Java-Entwickler!</p>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="num green" id="s-done">0</div><div class="lbl">Erledigt</div></div>
+    <div class="stat-card"><div class="num" id="s-left">30</div><div class="lbl">Verbleibend</div></div>
+    <div class="stat-card"><div class="num accent" id="s-pct">0%</div><div class="lbl">Fortschritt</div></div>
+    <div class="stat-card"><div class="num" id="s-streak" style="color:#fbbf24">0</div><div class="lbl">Streak</div></div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-header"><span>Gesamtfortschritt</span><span id="prog-txt">0 / 30 Tage</span></div>
+    <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+  </div>
+
+  <div class="phase-nav">
+    <button class="ptab active" onclick="showPhase(1)">Phase 1 — Grundlagen</button>
+    <button class="ptab" onclick="showPhase(2)">Phase 2 — OOP</button>
+    <button class="ptab" onclick="showPhase(3)">Phase 3 — Fortgeschritten</button>
+    <button class="ptab" onclick="showPhase(4)">Phase 4 — Praxis</button>
+  </div>
+
+  <!-- ═══ PHASE 1 ═══ -->
+  <div class="phase-section visible" id="p1">
+    <div class="phase-heading">Phase 1 · Tage 1–7 · Java Grundlagen</div>
+
+    <div class="day-card" id="d1">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 01</span><span class="day-title-text">Warum Java? Setup &amp; erstes Programm</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Java kennenlernen, JDK und IntelliJ IDEA installieren, erstes "Hello World" schreiben. Java ist eine der meistgenutzten Programmiersprachen der Welt — für Android, Backend und Enterprise.</p>
+        <div class="tags"><span class="tag">JDK Installation</span><span class="tag">IntelliJ IDEA</span><span class="tag">Hello World</span><span class="tag">main() Methode</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">00:00 – 18:00</span>
+              <span class="badge badge-total">ca. 18 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">JDK & IntelliJ installieren, erstes Java-Projekt erstellen und "Hello, [dein Name]!" auf der Konsole ausgeben</div>
+        <button class="mark-btn" id="btn-d1">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d2">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 02</span><span class="day-title-text">Variablen, Datentypen &amp; Operatoren</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Primitive Datentypen (int, double, boolean, char), Strings, Typkonvertierung (casting), Arithmetik- und Vergleichsoperatoren. Java ist statisch typisiert — jede Variable braucht einen Typ.</p>
+        <div class="tags"><span class="tag">int / double / boolean</span><span class="tag">String</span><span class="tag">Casting</span><span class="tag">Operatoren</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">18:00 – 1:05:00</span>
+              <span class="badge badge-total">ca. 47 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Programm mit verschiedenen Datentypen schreiben: Fläche eines Rechtecks berechnen und das Ergebnis ausgeben</div>
+        <button class="mark-btn" id="btn-d2">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d3">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 03</span><span class="day-title-text">Scanner &amp; Benutzereingaben</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Benutzereingaben mit der Scanner-Klasse lesen: nextLine(), nextInt(), nextDouble(). Input validieren und verarbeiten. String-Methoden: .length(), .toUpperCase(), .contains(), .substring().</p>
+        <div class="tags"><span class="tag">Scanner</span><span class="tag">nextLine() / nextInt()</span><span class="tag">String-Methoden</span><span class="tag">System.in</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">1:05:00 – 1:35:00</span>
+              <span class="badge badge-total">ca. 30 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Ein Programm das Name und Geburtsjahr einliest, das Alter berechnet und eine personalisierte Begrüßung ausgibt</div>
+        <button class="mark-btn" id="btn-d3">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d4">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 04</span><span class="day-title-text">Kontrollfluss: if, else, switch</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Bedingungen mit if/else if/else, switch-Statement und der moderne switch-Ausdruck (Java 14+). Ternärer Operator. Logische Operatoren (&&, ||, !).</p>
+        <div class="tags"><span class="tag">if / else if / else</span><span class="tag">switch</span><span class="tag">Ternärer Operator</span><span class="tag">&amp;&amp; / || / !</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">1:35:00 – 2:15:00</span>
+              <span class="badge badge-total">ca. 40 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Taschenrechner mit switch bauen: Operator vom Nutzer einlesen (+,-,*,/) und Ergebnis ausgeben</div>
+        <button class="mark-btn" id="btn-d4">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d5">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 05</span><span class="day-title-text">Schleifen: for, while, do-while</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">for-Schleifen, enhanced for-each, while, do-while, break und continue. Verschachtelte Schleifen. Schleifen sind die Grundlage jedes Algorithmus.</p>
+        <div class="tags"><span class="tag">for / for-each</span><span class="tag">while / do-while</span><span class="tag">break / continue</span><span class="tag">verschachtelt</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">2:15:00 – 2:55:00</span>
+              <span class="badge badge-total">ca. 40 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">FizzBuzz (1–100) programmieren und ein Einmaleins als verschachtelte Schleife ausgeben</div>
+        <button class="mark-btn" id="btn-d5">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d6">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 06</span><span class="day-title-text">Arrays &amp; ArrayList</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Statische Arrays, mehrdimensionale Arrays, die dynamische ArrayList aus java.util. .add(), .remove(), .get(), .size(). Arrays.sort() und Arrays.toString().</p>
+        <div class="tags"><span class="tag">int[] arrays</span><span class="tag">ArrayList</span><span class="tag">Arrays.sort()</span><span class="tag">java.util</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">2:55:00 – 3:40:00</span>
+              <span class="badge badge-total">ca. 45 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Notenliste als ArrayList bauen: Noten hinzufügen, Durchschnitt berechnen, Beste & Schlechteste finden, sortiert ausgeben</div>
+        <button class="mark-btn" id="btn-d6">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d7">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 07</span><span class="day-title-text">Methoden &amp; Recap</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Methoden definieren und aufrufen, Parameter und Rückgabewerte, Method Overloading, Rekursion. Dann alles aus Woche 1 in einem Mini-Projekt anwenden.</p>
+        <div class="tags"><span class="tag">static Methoden</span><span class="tag">return</span><span class="tag">Overloading</span><span class="tag">Rekursion</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">3:40:00 – 4:10:00</span>
+              <span class="badge badge-total">ca. 30 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Mini-Projekt: Zahlen-Ratespiel — Zufallszahl 1–100, 7 Versuche, Methoden für Spiellogik, Hinweise "zu hoch" / "zu niedrig"</div>
+        <button class="mark-btn" id="btn-d7">Als erledigt markieren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PHASE 2 ═══ -->
+  <div class="phase-section" id="p2">
+    <div class="phase-heading">Phase 2 · Tage 8–15 · Objektorientierte Programmierung</div>
+
+    <div class="day-card" id="d8">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 08</span><span class="day-title-text">Klassen &amp; Objekte</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Klassen erstellen, Konstruktoren, Instanzvariablen, Getter und Setter, this-Keyword. OOP ist das Herzstück von Java — alles ist ein Objekt.</p>
+        <div class="tags"><span class="tag">class</span><span class="tag">Konstruktor</span><span class="tag">Getter / Setter</span><span class="tag">this</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">4:10:00 – 4:55:00</span>
+              <span class="badge badge-total">ca. 45 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Person-Klasse mit Name, Alter, E-Mail, Getter/Setter und einer vorstellen()-Methode bauen</div>
+        <button class="mark-btn" id="btn-d8">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d9">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 09</span><span class="day-title-text">Vererbung &amp; Polymorphismus</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Vererbung mit extends, super-Keyword, Methoden überschreiben mit @Override. Polymorphismus — eine der stärksten OOP-Eigenschaften in Java.</p>
+        <div class="tags"><span class="tag">extends</span><span class="tag">super()</span><span class="tag">@Override</span><span class="tag">Polymorphismus</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">4:55:00 – 5:35:00</span>
+              <span class="badge badge-total">ca. 40 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Tier-Hierarchie: Tier → Säugetier → Hund/Katze. Methode lautGeben() mit @Override in jeder Unterklasse anpassen</div>
+        <button class="mark-btn" id="btn-d9">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d10">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 10</span><span class="day-title-text">Abstrakte Klassen &amp; Interfaces</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Abstrakte Klassen mit abstract, Interfaces mit interface und implements. Default-Methoden in Interfaces (Java 8+). Der Unterschied zwischen abstrakten Klassen und Interfaces.</p>
+        <div class="tags"><span class="tag">abstract class</span><span class="tag">interface</span><span class="tag">implements</span><span class="tag">default Methode</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">5:35:00 – 6:10:00</span>
+              <span class="badge badge-total">ca. 35 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Interface "Fahrbar" mit Methode fahren() erstellen. Auto und Fahrrad implementieren es unterschiedlich</div>
+        <button class="mark-btn" id="btn-d10">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d11">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 11</span><span class="day-title-text">Encapsulation, static &amp; final</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Access Modifier (public, private, protected), Encapsulation als OOP-Prinzip, static Felder und Methoden, final für Konstanten und unveränderliche Klassen.</p>
+        <div class="tags"><span class="tag">public / private</span><span class="tag">protected</span><span class="tag">static</span><span class="tag">final</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">6:10:00 – 6:40:00</span>
+              <span class="badge badge-total">ca. 30 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Bankkonto-Klasse mit private Feldern und public Getter/Setter. static-Zähler für Gesamtanzahl der Konten</div>
+        <button class="mark-btn" id="btn-d11">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d12">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 12</span><span class="day-title-text">Enums &amp; Records (Java 16+)</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Enums für feste Wertesets mit eigenen Feldern und Methoden. Records als kompakte Datenklassen (Java 16+) — Javas Antwort auf Kotlin Data Classes.</p>
+        <div class="tags"><span class="tag">enum</span><span class="tag">record</span><span class="tag">Enum-Methoden</span><span class="tag">switch + enum</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">6:40:00 – 7:05:00</span>
+              <span class="badge badge-total">ca. 25 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Wochentag-Enum mit Methode istWochentag(). Record "Punkt" mit x/y und Methode distanzZumUrsprung()</div>
+        <button class="mark-btn" id="btn-d12">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d13">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 13</span><span class="day-title-text">Fehlerbehandlung: Exceptions</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">try/catch/finally, checked vs unchecked Exceptions, eigene Exception-Klassen erstellen, throws-Keyword, try-with-resources. Saubere Fehlerbehandlung ist Java-Pflicht.</p>
+        <div class="tags"><span class="tag">try / catch / finally</span><span class="tag">throws</span><span class="tag">Custom Exception</span><span class="tag">try-with-resources</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=A74TOX803D0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Course for Beginners — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">7:05:00 – 7:35:00</span>
+              <span class="badge badge-total">ca. 30 Min. | Gesamt: ~8h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Bankkonto aus Tag 11 mit Fehlerbehandlung absichern: InsufficientFundsException, InvalidAmountException</div>
+        <button class="mark-btn" id="btn-d13">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d14">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 14</span><span class="day-title-text">Generics &amp; Collections Framework</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Generics mit &lt;T&gt;, das Java Collections Framework: List, Set, Map, Queue. HashMap, HashSet, LinkedList. Collections.sort() mit Comparator.</p>
+        <div class="tags"><span class="tag">&lt;T&gt; Generics</span><span class="tag">HashMap</span><span class="tag">HashSet</span><span class="tag">Comparator</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=GdAon80-0KA" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Collections Framework — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 45 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Schülerverwaltung mit HashMap&lt;String, Double&gt; (Name → Note), nach Note sortieren mit Comparator</div>
+        <button class="mark-btn" id="btn-d14">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d15">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 15</span><span class="day-title-text">OOP-Projekt: Mini-Bibliothekssystem</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Alles aus Phase 2 in einem Projekt anwenden. Klassen, Vererbung, Interfaces, Exceptions, Collections — alles zusammen!</p>
+        <div class="tags"><span class="tag">Freies Projekt</span><span class="tag">OOP Recap</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=GdzRzWymT4c" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java OOP Project Tutorial — Amigoscode (als Referenz)</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Als Inspiration</span>
+              <span class="badge badge-total">ca. 1h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Bibliothekssystem: Buch-Klasse, Mitglied-Klasse, ausleihen/zurückgeben, verfügbare Bücher suchen, Ausnahmen für nicht verfügbare Bücher</div>
+        <button class="mark-btn" id="btn-d15">Als erledigt markieren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PHASE 3 ═══ -->
+  <div class="phase-section" id="p3">
+    <div class="phase-heading">Phase 3 · Tage 16–23 · Fortgeschrittene Konzepte</div>
+
+    <div class="day-card" id="d16">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 16</span><span class="day-title-text">Lambdas &amp; Functional Interfaces</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Lambda-Ausdrücke (Java 8+), Functional Interfaces (Predicate, Function, Consumer, Supplier), Method References mit ::. Java wird damit deutlich moderner.</p>
+        <div class="tags"><span class="tag">Lambda (x) -> x</span><span class="tag">Predicate&lt;T&gt;</span><span class="tag">Function&lt;T,R&gt;</span><span class="tag">Methoden-Referenz</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=tj5sLSFjVj4" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Lambdas &amp; Functional Interfaces — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 35 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Liste von Personen mit Lambdas filtern (nur Erwachsene), transformieren (Namen) und sortieren</div>
+        <button class="mark-btn" id="btn-d16">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d17">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 17</span><span class="day-title-text">Stream API</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Die Stream API (Java 8+) für funktionale Datenverarbeitung: filter(), map(), reduce(), collect(), sorted(), distinct(), limit(). Damit schreibt man eleganten, deklarativen Java-Code.</p>
+        <div class="tags"><span class="tag">stream()</span><span class="tag">filter() / map()</span><span class="tag">collect()</span><span class="tag">Collectors.groupingBy()</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=Q93lV3uxzAA" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Stream API Tutorial — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 40 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">100 Studenten mit Stream API verarbeiten: filtern, nach Klasse gruppieren, Durchschnittsnote berechnen</div>
+        <button class="mark-btn" id="btn-d17">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d18">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 18</span><span class="day-title-text">Optional &amp; moderne Java-Features</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Optional&lt;T&gt; für null-sichere Programmierung, Text Blocks (Java 15+), Pattern Matching mit instanceof (Java 16+), sealed Classes (Java 17+).</p>
+        <div class="tags"><span class="tag">Optional&lt;T&gt;</span><span class="tag">Text Blocks</span><span class="tag">Pattern Matching</span><span class="tag">sealed class</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=vKVzRbsMnTQ" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Optional Tutorial — Coding with John</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 20 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Alte Null-Checks im Bibliotheksprojekt (Tag 15) durch Optional ersetzen</div>
+        <button class="mark-btn" id="btn-d18">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d19">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 19</span><span class="day-title-text">Dateien &amp; I/O</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Dateien lesen und schreiben mit java.nio.file (Path, Files), BufferedReader/Writer, CSV-Dateien verarbeiten, Verzeichnisse erstellen und durchsuchen.</p>
+        <div class="tags"><span class="tag">Path / Files</span><span class="tag">BufferedReader</span><span class="tag">Files.readAllLines()</span><span class="tag">CSV</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=ScUJx4aI0G0" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java File I/O — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 25 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Bücherliste aus Tag 15 in eine CSV-Datei exportieren und beim Start wieder einlesen</div>
+        <button class="mark-btn" id="btn-d19">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d20">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 20</span><span class="day-title-text">Multithreading &amp; Concurrency Basics</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Threads erstellen mit Thread und Runnable, ExecutorService für Thread-Pools, synchronized für Thread-Sicherheit. Java-Concurrency ist ein entscheidendes Backend-Thema.</p>
+        <div class="tags"><span class="tag">Thread / Runnable</span><span class="tag">ExecutorService</span><span class="tag">synchronized</span><span class="tag">sleep()</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=r_MbozD32eo" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Multithreading — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 45 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">3 parallele Download-Threads simulieren (sleep), mit ExecutorService koordinieren und Fertigstellung anzeigen</div>
+        <button class="mark-btn" id="btn-d20">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d21">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 21</span><span class="day-title-text">Datenbanken mit JDBC &amp; SQLite</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Datenbankzugriff mit JDBC (Java Database Connectivity), SQLite als lokale Datenbank. Connection, Statement, PreparedStatement, ResultSet — der Standard für Java-Datenbanken.</p>
+        <div class="tags"><span class="tag">JDBC</span><span class="tag">Connection</span><span class="tag">PreparedStatement</span><span class="tag">ResultSet</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=8fyKXiHoO0M" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java JDBC Tutorial — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 30 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Das Bibliothekssystem (Tag 15) auf SQLite umstellen: Bücher und Ausleihen in der Datenbank speichern</div>
+        <button class="mark-btn" id="btn-d21">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d22">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 22</span><span class="day-title-text">HTTP-Anfragen &amp; JSON mit Java</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">HTTP-Requests mit dem eingebauten HttpClient (Java 11+), JSON parsen mit der Gson-Bibliothek (Google). APIs aufrufen und die Antworten in Java-Objekte umwandeln.</p>
+        <div class="tags"><span class="tag">HttpClient</span><span class="tag">HttpRequest</span><span class="tag">Gson</span><span class="tag">JSON Parsing</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=2hJ1n3qFcKw" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java HttpClient &amp; JSON — Bro Code</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 25 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Wetter-App: Aktuelle Wetterdaten von OpenWeatherMap mit HttpClient laden und mit Gson parsen</div>
+        <button class="mark-btn" id="btn-d22">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d23">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 23</span><span class="day-title-text">Testing mit JUnit 5</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Unit Tests mit JUnit 5: @Test, @BeforeEach, @AfterEach, Assertions (assertEquals, assertThrows, assertNotNull). Mockito für das Mocken von Abhängigkeiten.</p>
+        <div class="tags"><span class="tag">@Test</span><span class="tag">assertEquals</span><span class="tag">assertThrows</span><span class="tag">@BeforeEach</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=vZm0lHciFsQ" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">JUnit 5 Tutorial — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 50 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Tests für das Bankkonto (Tag 11 & 13) schreiben: einzahlen, abheben, Ausnahmen testen</div>
+        <button class="mark-btn" id="btn-d23">Als erledigt markieren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PHASE 4 ═══ -->
+  <div class="phase-section" id="p4">
+    <div class="phase-heading">Phase 4 · Tage 24–30 · Praxis &amp; echte Projekte</div>
+
+    <div class="day-card" id="d24">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 24</span><span class="day-title-text">Maven &amp; Build-Tools</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Maven als Build-Tool und Dependency-Manager. pom.xml verstehen, Abhängigkeiten hinzufügen (Gson, JUnit), Maven-Lifecycle (compile, test, package). Kein echtes Java-Projekt ohne Maven.</p>
+        <div class="tags"><span class="tag">Maven</span><span class="tag">pom.xml</span><span class="tag">Dependencies</span><span class="tag">mvn package</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=Xatr8AZLOsE" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Maven Tutorial — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 30 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Das Bibliotheksprojekt in ein Maven-Projekt umwandeln: pom.xml mit Gson und JUnit-Abhängigkeiten</div>
+        <button class="mark-btn" id="btn-d24">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d25">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 25</span><span class="day-title-text">Spring Boot — Einführung</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Spring Boot ist das meistgenutzte Java-Framework für Backend-Entwicklung. @SpringBootApplication, @RestController, @GetMapping — in wenigen Minuten läuft ein REST-API.</p>
+        <div class="tags"><span class="tag">@SpringBootApplication</span><span class="tag">@RestController</span><span class="tag">@GetMapping</span><span class="tag">REST API</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=9SGDpanrc8U" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Spring Boot Tutorial — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">00:00 – 45:00</span>
+              <span class="badge badge-total">ca. 45 Min. | Gesamt: ~3h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Erstes Spring Boot Projekt: REST-API mit GET-Endpunkten für eine einfache Bücherliste</div>
+        <button class="mark-btn" id="btn-d25">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d26">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 26</span><span class="day-title-text">Spring Boot — CRUD REST API</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Vollständige CRUD-API mit Spring Boot: @PostMapping, @PutMapping, @DeleteMapping, @PathVariable, @RequestBody. Daten mit Spring Data JPA in einer H2-Datenbank speichern.</p>
+        <div class="tags"><span class="tag">@PostMapping</span><span class="tag">@RequestBody</span><span class="tag">Spring Data JPA</span><span class="tag">H2 Database</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=9SGDpanrc8U" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Spring Boot Tutorial — Amigoscode</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">45:00 – 2:00:00</span>
+              <span class="badge badge-total">ca. 75 Min. | Gesamt: ~3h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Bibliotheks-API erweitern: POST (Buch hinzufügen), PUT (aktualisieren), DELETE (löschen), mit JPA persistent speichern</div>
+        <button class="mark-btn" id="btn-d26">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d27">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 27</span><span class="day-title-text">Design Patterns: Singleton, Builder, Factory</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Die wichtigsten Gang-of-Four Design Patterns in Java: Singleton (einzige Instanz), Builder (komplexe Objekte bauen), Factory (Objekte erstellen ohne Klasse zu kennen).</p>
+        <div class="tags"><span class="tag">Singleton Pattern</span><span class="tag">Builder Pattern</span><span class="tag">Factory Pattern</span><span class="tag">Design Patterns</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=v9ejT8IIQkQ" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Design Patterns — Coding with John</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Ganzes Video</span>
+              <span class="badge badge-total">ca. 30 Min.</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Buch-Builder für komplexe Buch-Objekte implementieren, BuchFactory für verschiedene Buchtypen (Ebook, Hardcover)</div>
+        <button class="mark-btn" id="btn-d27">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d28">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 28</span><span class="day-title-text">Git &amp; GitHub für Java-Projekte</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Git-Grundlagen für Java-Entwickler: .gitignore für Java/Maven, Branches, Pull Requests. GitHub Actions für automatische Build-Checks. Saubere Commit-Messages.</p>
+        <div class="tags"><span class="tag">git init / commit</span><span class="tag">.gitignore</span><span class="tag">GitHub Actions</span><span class="tag">README.md</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=RGOj5yH7evk" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Git and GitHub for Beginners — freeCodeCamp</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">00:00 – 40:00</span>
+              <span class="badge badge-total">ca. 40 Min. | Gesamt: ~1h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Alle Projekte auf GitHub hochladen mit sauberem .gitignore (target/, .idea/), README.md und sinnvollen Commits</div>
+        <button class="mark-btn" id="btn-d28">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d29">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 29</span><span class="day-title-text">Spring Boot — Security &amp; Deployment Basics</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Spring Security Grundlagen für API-Absicherung, Anwendung als JAR verpacken mit mvn package, Grundkonzepte von Deployment und Umgebungsvariablen.</p>
+        <div class="tags"><span class="tag">Spring Security</span><span class="tag">mvn package</span><span class="tag">JAR file</span><span class="tag">application.properties</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=9SGDpanrc8U" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Spring Boot Tutorial — Amigoscode (Security-Kapitel)</span>
+            <div class="video-timing">
+              <span class="badge badge-segment">2:00:00 – Ende</span>
+              <span class="badge badge-total">ca. 60 Min. | Gesamt: ~3h</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Die Bibliotheks-API mit Basic Auth absichern und als ausführbares JAR verpacken</div>
+        <button class="mark-btn" id="btn-d29">Als erledigt markieren</button>
+      </div>
+    </div>
+
+    <div class="day-card" id="d30">
+      <div class="day-header">
+        <button class="check-circle"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></button>
+        <span class="day-num">Tag 30</span><span class="day-title-text">Abschlussprojekt — vollständige Java-App</span>
+        <span class="chev"><svg viewBox="0 0 16 16"><polyline points="4,6 8,10 12,6"/></svg></span>
+      </div>
+      <div class="day-body">
+        <p class="day-desc">Alles kombinieren: OOP, Generics, Stream API, Exceptions, JUnit Tests, JDBC oder JPA, Spring Boot REST API, Maven, GitHub. Das ist dein Beweis als Java-Entwickler!</p>
+        <div class="tags"><span class="tag">Alles!</span><span class="tag">Spring Boot</span><span class="tag">JPA</span><span class="tag">GitHub</span></div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=GdzRzWymT4c" target="_blank">
+          <span class="yt-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg></span>
+          <div class="video-meta">
+            <span class="video-title">Java Full Stack Project — Amigoscode (Inspiration)</span>
+            <div class="video-timing">
+              <span class="badge badge-full">Als Inspiration</span>
+              <span class="badge badge-total">ca. 1–3h je nach Projekt</span>
+            </div>
+          </div>
+        </a>
+        <div class="task-box">Vollständige Bibliotheks-API: Spring Boot + JPA + PostgreSQL/H2, CRUD-Endpunkte, JUnit-Tests, Maven-Build, auf GitHub mit README — das ist dein Portfolio-Projekt!</div>
+        <button class="mark-btn" id="btn-d30">Als erledigt markieren</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="reset-area">
+    <button class="reset-btn" onclick="confirmReset()">Fortschritt zurücksetzen</button>
+  </div>
+</div>
+
+<script>
+const KEY = 'java30_v1';
+function load() { try { return JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(e) { return {}; } }
+function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e) {} }
+let state = load();
+
+function toggleDone(id) { state[id]=!state[id]; save(state); applyCard(id); updateStats(); }
+
+function applyCard(id) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  const btn = document.getElementById('btn-'+id);
+  if (state[id]) {
+    card.classList.add('done');
+    if (btn) btn.textContent = 'Als nicht erledigt markieren';
+  } else {
+    card.classList.remove('done');
+    if (btn) btn.textContent = 'Als erledigt markieren';
+  }
+}
+
+function toggleCard(id) {
+  const isOpen = document.getElementById(id).classList.contains('open');
+  document.querySelectorAll('.day-card').forEach(c => c.classList.remove('open'));
+  if (!isOpen) document.getElementById(id).classList.add('open');
+}
+
+function updateStats() {
+  let done = 0;
+  for (let i = 1; i <= 30; i++) { if (state['d'+i]) done++; }
+  const pct = Math.round(done / 30 * 100);
+  document.getElementById('s-done').textContent = done;
+  document.getElementById('s-left').textContent = 30 - done;
+  document.getElementById('s-pct').textContent = pct + '%';
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-txt').textContent = done + ' / 30 Tage';
+  let streak = 0;
+  for (let i = 1; i <= 30; i++) { if (state['d'+i]) streak++; else break; }
+  document.getElementById('s-streak').textContent = streak;
+  document.getElementById('streak-num').textContent = streak;
+  document.getElementById('streak-pill').style.display = streak >= 2 ? 'flex' : 'none';
+  document.getElementById('complete-banner').style.display = done === 30 ? 'block' : 'none';
+}
+
+function showPhase(n) {
+  document.querySelectorAll('.phase-section').forEach((el, i) => el.classList.toggle('visible', i === n-1));
+  document.querySelectorAll('.ptab').forEach((t, i) => t.classList.toggle('active', i === n-1));
+}
+
+function confirmReset() {
+  if (confirm('Wirklich den gesamten Fortschritt zuruecksetzen?')) {
+    state = {}; save(state);
+    for (let i = 1; i <= 30; i++) applyCard('d'+i);
+    updateStats();
+  }
+}
+
+document.querySelectorAll('.day-card').forEach(card => {
+  const id = card.id;
+  const header = card.querySelector('.day-header');
+  const checkBtn = card.querySelector('.check-circle');
+  const markBtn = card.querySelector('.mark-btn');
+  if (header) header.addEventListener('click', () => toggleCard(id));
+  if (checkBtn) checkBtn.addEventListener('click', e => { e.stopPropagation(); toggleDone(id); });
+  if (markBtn) markBtn.addEventListener('click', () => toggleDone(id));
+});
+
+for (let i = 1; i <= 30; i++) applyCard('d'+i);
+updateStats();
+</script>
+</body>
+</html>
